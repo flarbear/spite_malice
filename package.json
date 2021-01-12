@@ -1,0 +1,20 @@
+{
+  "name": "spite-malice",
+  "version": "1.0.0",
+  "description": "Spite and Malice Card Game",
+  "main": "index.js",
+  "scripts": {
+    "preinstall": "npx npm-force-resolutions",
+    "start": "node -r esm src/server.js"
+  },
+  "author": "flarbear",
+  "license": "MIT",
+  "dependencies": {
+    "boardgame.io": "^0.42.2",
+    "esm": "^3.2.25",
+    "koa-static": "^5.0.0"
+  },
+  "resolutions": {
+    "node-forge": "0.10.0"
+  }
+}
