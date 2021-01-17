@@ -1,7 +1,14 @@
+/*
+ * Copyright 2021 flarbear@github
+ *
+ * Use of this source code is governed by a MIT-style
+ * license that can be found in the LICENSE file or at
+ * https://opensource.org/licenses/MIT.
+ */
+
 import 'package:flutter/material.dart';
 
-import 'cards.dart';
-import 'card_widgets.dart';
+import 'package:playing_cards/playing_cards.dart';
 
 class TestScreen extends StatefulWidget {
   TestScreen({Key? key, required this.title}) : super(key: key);
@@ -39,10 +46,10 @@ class _TestScreenState extends State<TestScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  _wrap(SpiteMaliceCardWidget(null)),
-                  _wrap(SpiteMaliceCardWidget(SpiteMaliceCard.back)),
+                  _wrap(PlayingCardWidget(null)),
+                  _wrap(PlayingCardWidget(PlayingCard.back)),
                   for (int rank = 0; rank <= 12; rank++)
-                    _wrap(SpiteMaliceCardWidget(SpiteMaliceCard(suit, rank))),
+                    _wrap(PlayingCardWidget(PlayingCard(suit: suit, rank:rank))),
                 ],
               ),
           ],

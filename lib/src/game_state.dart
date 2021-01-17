@@ -1,7 +1,13 @@
-import 'package:boardgame_io/boardgame.dart';
-import 'package:spite_malice/src/move_tracker.dart';
+/*
+ * Copyright 2021 flarbear@github
+ *
+ * Use of this source code is governed by a MIT-style
+ * license that can be found in the LICENSE file or at
+ * https://opensource.org/licenses/MIT.
+ */
 
-import 'cards.dart';
+import 'package:boardgame_io/boardgame.dart';
+import 'package:playing_cards/playing_cards.dart';
 
 enum SpiteMalicePhase {
   waiting,
@@ -10,30 +16,30 @@ enum SpiteMalicePhase {
   playing,
 }
 
-class SpiteMaliceStackId {
-  const SpiteMaliceStackId._unique(this.name) : this.index = -1;
-  const SpiteMaliceStackId._indexed(this.name, this.index);
+class SpiteMaliceId {
+  const SpiteMaliceId._unique(this.name) : this.index = -1;
+  const SpiteMaliceId._indexed(this.name, this.index);
 
   final String name;
   final int index;
 
-  static List<SpiteMaliceStackId> _makeList(String baseName, int size) {
-    return List.generate(size, (i) => SpiteMaliceStackId._indexed('$baseName${i+1}', i));
+  static List<SpiteMaliceId> _makeList(String baseName, int size) {
+    return List.generate(size, (i) => SpiteMaliceId._indexed('$baseName${i+1}', i));
   }
 
-  static List<SpiteMaliceStackId> cutIds = _makeList('cut', 12);
+  static List<SpiteMaliceId> cutIds = _makeList('cut', 12);
 
-  static SpiteMaliceStackId drawId = SpiteMaliceStackId._unique('draw');
-  static List<SpiteMaliceStackId> buildIds = _makeList('build', 4);
-  static SpiteMaliceStackId trashId = SpiteMaliceStackId._unique('trash');
+  static SpiteMaliceId drawId = SpiteMaliceId._unique('draw');
+  static List<SpiteMaliceId> buildIds = _makeList('build', 4);
+  static SpiteMaliceId trashId = SpiteMaliceId._unique('trash');
 
-  static SpiteMaliceStackId stockId = SpiteMaliceStackId._unique('stock');
-  static List<SpiteMaliceStackId> discardIds = _makeList('discard', 4);
+  static SpiteMaliceId stockId = SpiteMaliceId._unique('stock');
+  static List<SpiteMaliceId> discardIds = _makeList('discard', 4);
 
-  static List<SpiteMaliceStackId> handIds = _makeList('hand', 5);
+  static List<SpiteMaliceId> handIds = _makeList('hand', 5);
 
   @override
-  String toString() => 'SpiteMaliceStackId($name, $index)';
+  String toString() => 'SpiteMaliceId($name${index >= 0 ? ', $index' : ''})';
 }
 
 typedef SpiteMaliceGameStateListener = void Function();
@@ -41,13 +47,21 @@ typedef SpiteMaliceGameStateListener = void Function();
 typedef SpiteMaliceGameStateCancel = void Function();
 
 class SpiteMaliceTableauState {
-  SpiteMaliceCard? stockTop;
+  PlayingCard? stockTop;
   int stockSize = 0;
-  List<List<SpiteMaliceCard>> discardPiles = List<List<SpiteMaliceCard>>.generate(4, (index) => <SpiteMaliceCard>[]);
-  List<SpiteMaliceCard?>? hand;
+  List<List<PlayingCard>> discardPiles = List<List<PlayingCard>>.generate(4, (index) => <PlayingCard>[]);
+  List<PlayingCard?>? hand;
 }
 
-class SpiteMaliceGameState {
+class SpiteMaliceCutState {
+  SpiteMaliceCutState(this.cutIndex, this.cutCard);
+  const SpiteMaliceCutState.available() : this.cutIndex = 0, this.cutCard = PlayingCard.back;
+
+  final int? cutIndex;
+  final PlayingCard? cutCard;
+}
+
+class SpiteMaliceGameState extends CardGameState<SpiteMaliceId> {
   SpiteMaliceGameState(this.gameClient);
 
   final Client gameClient;
@@ -55,19 +69,17 @@ class SpiteMaliceGameState {
   SpiteMalicePhase phase = SpiteMalicePhase.waiting;
 
   int drawSize = 0;
-  List<SpiteMaliceCard?> buildTops = List<SpiteMaliceCard?>.generate(4, (index) => null);
+  List<PlayingCard?> buildTops = List.generate(4, (index) => null);
   List<int> buildSizes = List<int>.generate(4, (index) => 0);
   int trashSize = 0;
 
   Map<String, SpiteMaliceTableauState> tableaux = {};
 
-  List<SpiteMaliceCard> cutCards = List<SpiteMaliceCard>.generate(12, (index) => SpiteMaliceCard.back);
+  Map<String, SpiteMaliceCutState> cutStates = {};
+  List<PlayingCard> cutCards = List.generate(12, (index) => PlayingCard.back);
   String? dealerId;
 
-  SpiteMaliceStackId? highlightFrom;
-  Map<SpiteMaliceStackId, SpiteMaliceMove>? validMoves;
-  bool get selected => validMoves != null;
-  SpiteMaliceStackId? highlightTo;
+  late MoveState<SpiteMaliceId> currentMove = MoveState.empty();
 
   List<SpiteMaliceGameStateListener> listeners = <SpiteMaliceGameStateListener>[];
 
@@ -83,11 +95,11 @@ class SpiteMaliceGameState {
   SpiteMaliceTableauState get myTableau => tableaux[gameClient.playerID] ?? SpiteMaliceTableauState();
 
   bool isMyTurn = false;
-  bool hasCut = false;
-  bool amDealer = false;
+  bool get hasCut => cutStates[gameClient.playerID]?.cutCard != null;
+  bool get isMyDeal => dealerId == gameClient.playerID;
   bool get isHandEmpty => myTableau.hand!.every((card) => card == null);
 
-  SpiteMaliceCard? discardTop(int discardIndex) {
+  PlayingCard? discardTop(int discardIndex) {
     return (myTableau.discardPiles[discardIndex].isEmpty ? null : myTableau.discardPiles[discardIndex].last);
   }
 
@@ -96,40 +108,19 @@ class SpiteMaliceGameState {
     notify();
   }
 
-  void setHighlightFrom(SpiteMaliceStackId? type) {
-    if (!selected && highlightFrom != type) {
-      // print('highlight from changed from $highlightFrom to $type');
-      highlightFrom = type;
-      notify();
-    }
-  }
-
-  void setSelected(Map<SpiteMaliceStackId, SpiteMaliceMove>? moves) {
-    // print('setSelected($moves).length');
-    this.validMoves = moves;
+  MoveState<SpiteMaliceId> getCurrentMove() => currentMove;
+  void setCurrentMove(MoveState<SpiteMaliceId> moveState) {
+    // print('highlight from changed from $highlightFrom to $type');
+    currentMove = moveState;
     notify();
   }
 
-  void setHighlightTo(SpiteMaliceStackId? type) {
-    if (selected && highlightTo != type) {
-      // print('highlight to changed from $highlightFrom to $type');
-      highlightTo = type;
-      notify();
-    }
-  }
-
-  void clearHighlight() {
-    highlightFrom = highlightTo = null;
-    validMoves = null;
-    notify();
-  }
-
-  SpiteMaliceCard? _getCard(Map<String,dynamic>? gCard) {
+  PlayingCard? _getCard(Map<String,dynamic>? gCard) {
     if (gCard == null) return null;
-    if (gCard['isWild']) return SpiteMaliceCard.wild;
+    if (gCard['isWild']) return PlayingCard.wild;
     int suitIndex = gCard['suit'];
     int rankIndex = gCard['rank'];
-    return SpiteMaliceCard(suitIndex, rankIndex);
+    return PlayingCard(suit: suitIndex, rank: rankIndex);
   }
 
   void update(Map<String, dynamic> G, ClientContext ctx) {
@@ -143,18 +134,18 @@ class SpiteMaliceGameState {
         buildTops[i] = buildSizes[i] == 0 ? null : _getCard(buildPiles[i].last as Map<String,dynamic>);
       }
       trashSize = G['completedSize'];
-      for (String playerID in G['players'].keys) {
+      for (String playerID in players.keys) {
         SpiteMaliceTableauState? tableau = tableaux[playerID];
         if (tableau == null) {
           tableaux[playerID] = tableau = SpiteMaliceTableauState();
         }
-        Map<String,dynamic> player = G['players'][playerID];
+        Map<String,dynamic> player = players[playerID];
         tableau.stockSize = player['stockSize'];
         tableau.stockTop = tableau.stockSize == 0 ? null : _getCard(player['stockTop']);
         for (int i = 0; i < 4; i++) {
-          tableau.discardPiles[i] = player['discardPiles'][i].map<SpiteMaliceCard>((card) => _getCard(card)!).toList();
+          tableau.discardPiles[i] = player['discardPiles'][i].map<PlayingCard>((card) => _getCard(card)!).toList();
         }
-        tableau.hand = player['hand']?.map<SpiteMaliceCard?>((card) => _getCard(card)).toList();
+        tableau.hand = player['hand']?.map<PlayingCard?>((card) => _getCard(card)).toList();
       }
       assert(tableaux[gameClient.playerID] != null && tableaux[gameClient.playerID]!.hand != null);
       isMyTurn = ctx.currentPlayer == gameClient.playerID;
@@ -171,17 +162,17 @@ class SpiteMaliceGameState {
       // print('hand: ${myTableau.hand!.join(', ')}');
       phase = SpiteMalicePhase.playing;
     } else {
-      print(ctx.phase);
-      cutCards.fillRange(0, 12, SpiteMaliceCard.back);
+      // print(ctx.phase);
+      cutCards.fillRange(0, 12, PlayingCard.back);
       for (String playerId in players.keys) {
         int? index = players[playerId]['cutIndex'];
+        PlayingCard? card = _getCard(players[playerId]['cutCard']);
+        cutStates[playerId] = SpiteMaliceCutState(index, card);
         if (index != null) {
-          cutCards[index] = _getCard(players[playerId]['cutCard'])!;
+          cutCards[index] = card!;
         }
       }
-      hasCut = players[gameClient.playerID]['cutIndex'] != null;
-      dealerId = G['dealer'].toString();
-      amDealer = dealerId == gameClient.playerID;
+      dealerId = G['dealer']?.toString();
       phase = ctx.phase == 'dealing'
           ? SpiteMalicePhase.dealing
           : SpiteMalicePhase.cutting;
@@ -189,11 +180,43 @@ class SpiteMaliceGameState {
     notify();
   }
 
-  void deal() {
-    gameClient.makeMove('deal', []);
-  }
+  static SpiteMaliceCutState unrevealedCut = SpiteMaliceCutState(0, PlayingCard.back);
 
-  void cutDeck(int i) {
-    gameClient.makeMove('cutDeck', [ i ]);
+  PlayingCard cutCard(SpiteMaliceId cutId) =>
+    cutStates.values.firstWhere((state) => state.cutIndex == cutId.index,
+      orElse: () => SpiteMaliceCutState.available(),
+    ).cutCard!;
+
+  bool canCutOrDeal() => !hasCut || isMyDeal;
+  void cutOrDeal(SpiteMaliceId id) => phase == SpiteMalicePhase.dealing
+      ? gameClient.makeMove('deal')
+      : gameClient.makeMove('cutDeck', [id.index]);
+
+  bool canDraw() => isHandEmpty;
+  void draw() => gameClient.makeMove('draw');
+
+  bool canDiscard(SpiteMaliceId hand) => myTableau.hand![hand.index] != null;
+  void discard(SpiteMaliceId hand, SpiteMaliceId discard) =>
+      gameClient.makeMove('discard', [ hand.index, discard.index ]);
+
+  bool canBuildFromHand(SpiteMaliceId hand, SpiteMaliceId build) => canBuild(build, myTableau.hand![hand.index]);
+  void buildFromHand(SpiteMaliceId hand, SpiteMaliceId build) =>
+      gameClient.makeMove('buildFromHand', [ hand.index, build.index ]);
+
+  bool canBuildFromStock(SpiteMaliceId build) => canBuild(build, myTableau.stockTop);
+  void buildFromStock(SpiteMaliceId build) =>
+      gameClient.makeMove('buildFromStock', [ build.index ]);
+
+  bool canBuildFromDiscard(SpiteMaliceId discard, SpiteMaliceId build) =>
+      canBuild(build, myTableau.discardPiles[discard.index].last);
+  void buildFromDiscard(SpiteMaliceId discard, SpiteMaliceId build) =>
+      gameClient.makeMove('buildFromDiscard', [ discard.index, build.index ]);
+
+  bool canBuild(SpiteMaliceId build, PlayingCard? card) {
+    if (card == null) return false;
+    if (card.isBack) return false;
+    if (card.isWild) return true;
+    if (card.rank == buildSizes[build.index] + 1) return true;
+    return false;
   }
 }

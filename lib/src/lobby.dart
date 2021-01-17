@@ -1,7 +1,21 @@
+/*
+ * Copyright 2021 flarbear@github
+ *
+ * Use of this source code is governed by a MIT-style
+ * license that can be found in the LICENSE file or at
+ * https://opensource.org/licenses/MIT.
+ */
+
 import 'package:boardgame_io/boardgame.dart';
 import 'package:flutter/material.dart';
 
 class LobbyScreen extends StatelessWidget {
+  LobbyScreen({
+    this.supportedGames = const [],
+  });
+
+  final List<String> supportedGames;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -10,13 +24,17 @@ class LobbyScreen extends StatelessWidget {
         title: Text('Spite-Malice Lobby'),
       ),
       body: Center(
-        child: LobbyPage(),
+        child: LobbyPage(supportedGames),
       ),
     );
   }
 }
 
 class LobbyPage extends StatefulWidget {
+  LobbyPage(this.supportedGames);
+
+  final List<String> supportedGames;
+
   @override
   State createState() => LobbyPageState();
 }
@@ -50,7 +68,9 @@ class LobbyPageState extends State<LobbyPage> {
   }
 
   void _loadGames() async {
-    List<String> games = await lobby.listGames();
+    List<String> games = (await lobby.listGames())
+        .where((gameName) => widget.supportedGames.contains(gameName))
+        .toList();
     setState(() {
       _allGames = games;
     });
@@ -120,7 +140,7 @@ class LobbyPageState extends State<LobbyPage> {
                     ...match.players.map((player) {
                       return RaisedButton(
                         onPressed: player.isSeated ? null : () => _joinMatch(context, match, player.id),
-                        child: Text(player.isSeated ? player.seatedName! : 'Open Seat'),
+                        child: Text(player.seatedName ?? 'Open Seat'),
                       );
                     }),
                   ],
@@ -135,9 +155,7 @@ class LobbyPageState extends State<LobbyPage> {
               DropdownButton<int>(
                 value: _numPlayers,
                 onChanged: (value) => setState(() => _numPlayers = value!),
-                items: [1, 2, 3, 4, 5, 6]
-                    .map((n) => DropdownMenuItem(child: Text('$n Players'), value: n))
-                    .toList(),
+                items: List.generate(6, (n) => DropdownMenuItem<int>(child: Text('${n+1} Players'), value: n+1)),
               ),
               Text('Size of stock pile: '),
               DropdownButton<int>(

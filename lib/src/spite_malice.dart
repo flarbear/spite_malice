@@ -1,15 +1,26 @@
+/*
+ * Copyright 2021 flarbear@github
+ *
+ * Use of this source code is governed by a MIT-style
+ * license that can be found in the LICENSE file or at
+ * https://opensource.org/licenses/MIT.
+ */
+
 import 'package:boardgame_io/boardgame.dart';
 import 'package:flutter/material.dart';
-import 'package:spite_malice/src/move_tracker.dart';
+import 'package:playing_cards/playing_cards.dart';
 
-import 'cards.dart';
-import 'game_state.dart';
 import 'card_widgets.dart';
+import 'game_state.dart';
+import 'move_tracker.dart';
 
 class SpiteMaliceScreen extends StatelessWidget {
+  SpiteMaliceScreen(this.gameClient);
+
+  final Client gameClient;
+
   @override
   Widget build(BuildContext context) {
-    final Client gameClient = ModalRoute.of(context)!.settings.arguments! as Client;
     return Scaffold(
       backgroundColor: Colors.green,
       appBar: AppBar(
@@ -33,14 +44,17 @@ class SpiteMalicePage extends StatefulWidget {
 
 class SpiteMalicePageState extends State<SpiteMalicePage> {
   late SpiteMaliceGameState state;
-  late SpiteMaliceMoveTracker tracker;
+  late MoveTracker playingTracker;
+  late MoveTracker cutDealTracker;
+  late SpiteMaliceGameStateCancel listenCancel;
 
   @override
   void initState() {
     super.initState();
     state = SpiteMaliceGameState(widget.gameClient);
-    tracker = SpiteMaliceMoveTracker(state);
-    state.listen(() => setState(() => {}));
+    playingTracker = MoveTracker<SpiteMaliceId, SpiteMaliceGameState>(state, SpiteMaliceMoveTracker.playingMoves);
+    cutDealTracker = MoveTracker<SpiteMaliceId, SpiteMaliceGameState>(state, SpiteMaliceMoveTracker.cutDealMoves);
+    listenCancel = state.listen(() => setState(() => {}));
     state.init();
     widget.gameClient.subscribe(state.update);
     widget.gameClient.start();
@@ -48,30 +62,10 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
 
   @override
   void dispose() {
+    listenCancel();
     widget.gameClient.stop();
     widget.gameClient.leaveGame();
     super.dispose();
-  }
-
-  Widget _cutCardWidget(List<SpiteMaliceCard> cards, int index) {
-    return GestureDetector(
-      onTap: () {
-        print('chose $index');
-        if (state.phase == SpiteMalicePhase.dealing) {
-          state.deal();
-        } else {
-          state.cutDeck(index);
-        }
-      },
-      child: Padding(
-        padding: EdgeInsets.all(5.0),
-        child: SizedBox(
-          width:   90,
-          height: 140,
-          child: SpiteMaliceCardWidget(cards[index], highlighted: state.amDealer,),
-        ),
-      ),
-    );
   }
 
   Widget _dealerLine() {
@@ -81,7 +75,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
       } else {
         return Text('Pick a card to determine the dealer...');
       }
-    } else if (state.amDealer) {
+    } else if (state.isMyDeal) {
       return Text('Click on a card to deal!');
     } else {
       return Text('Waiting for ${widget.gameClient.players[state.dealerId]!.name} to deal...');
@@ -96,22 +90,14 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
         return Text('Waiting for game state to load');
       case SpiteMalicePhase.cutting:
       case SpiteMalicePhase.dealing:
-        return SizedBox(
-          width: 500,
-          height: 500,
-          child: Column(
-            children: <Widget>[
-              _dealerLine(),
-              ...[0, 4, 8].map((rowIndex) =>
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [0, 1, 2, 3].map((colIndex) =>
-                        _cutCardWidget(state.cutCards, rowIndex + colIndex)
-                    ).toList(),
-                  )
-              ).toList(),
-            ],
-          ),
+        return Column(
+          children: <Widget>[
+            _dealerLine(),
+            SpiteMaliceCutDeal(
+              cards: state.cutCards,
+              tracker: cutDealTracker,
+            ),
+          ],
         );
       case SpiteMalicePhase.playing:
         return Row(
@@ -123,12 +109,12 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
                   buildTops: state.buildTops,
                   buildSizes: state.buildSizes,
                   trashSize: state.trashSize,
-                  tracker: state.isMyTurn ? tracker : null,
+                  tracker: state.isMyTurn ? playingTracker : null,
                 ),
                 SizedBox(height: 20),
                 SpiteMaliceTableau(
                   tableau: state.myTableau,
-                  tracker: state.isMyTurn ? tracker : null,
+                  tracker: state.isMyTurn ? playingTracker : null,
                 ),
               ],
             ),

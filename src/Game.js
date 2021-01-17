@@ -18,18 +18,11 @@ function Transfer(source, dest) {
   }
 }
 
-function ReallyShuffle(ctx, deck) {
-  for (var i = 0; i < 5; i++) {
-    deck = ctx.random.Shuffle(deck);
-  }
-  return deck;
-}
-
 function DrawCard(ctx, deck, completed) {
   if (deck.length == 0) {
     const temp = [];
     Transfer(completed, temp);
-    Transfer(ReallyShuffle(ctx, temp), deck);
+    Transfer(ctx.random.Shuffle(temp), deck);
   }
   return deck.pop();
 }
@@ -90,7 +83,7 @@ function MakePiles(n) {
 }
 
 function Deal(G, ctx) {
-  G.draw = ReallyShuffle(ctx, MakeDeck(ctx.numPlayers, G.stockSize));
+  G.draw = ctx.random.Shuffle(MakeDeck(ctx.numPlayers, G.stockSize));
   for (var i = 0; i < G.stockSize; i++) {
     for (var j = 0; j < ctx.numPlayers; j++) {
       G.players[j].stock.push(DrawCard(ctx, G.draw, G.completed));
@@ -288,7 +281,7 @@ const SpiteMaliceGame = {
                     }
                   }
                   if (!G.cutCards) {
-                    G.cutCards = ReallyShuffle(ctx, MakeCutDeck(ctx));
+                    G.cutCards = ctx.random.Shuffle(MakeCutDeck(ctx));
                   }
                   G.players[ctx.playerID].cutIndex = index;
                   G.players[ctx.playerID].cutCard = G.cutCards[index];
