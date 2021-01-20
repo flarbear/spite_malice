@@ -51,7 +51,7 @@ class SpiteMaliceTableauLayout extends TableauLayoutBase {
     ],
   );
 
-  final SpiteMaliceMoveTracker? tracker;
+  final MoveTracker? tracker;
   final int maxDiscard;
   final bool hasHand;
 
@@ -73,7 +73,7 @@ class SpiteMaliceTableau extends StatelessWidget {
     this.tracker,
   })
       : assert(tableau.discardPiles.length == 4),
-        assert(tableau.hand == null || tableau.hand!.length == 5);
+        assert(tableau.hand.length == 5);
 
   final SpiteMaliceTableauState tableau;
   final MoveTracker? tracker;
@@ -83,14 +83,13 @@ class SpiteMaliceTableau extends StatelessWidget {
     int maxDiscard = tableau.discardPiles.fold<int>(3, (prev, pile) => max(prev, pile.length));
     List<PlayingCard?>? hand = tableau.hand;
     return CustomMultiChildLayout(
-      delegate: SpiteMaliceTableauLayout(maxDiscard, hand != null),
+      delegate: SpiteMaliceTableauLayout(maxDiscard, true),
       children: <Widget>[
-        PlayingCardStack.tracked(tracker, SpiteMaliceId.stockId, true, tableau.stockTop, tableau.stockSize),
+        PlayingCardStackWidget.tracked(tracker, SpiteMaliceId.stockId, true, tableau.stock),
         for (int i = 0; i < 4; i++)
-          PlayingCardPile.tracked(tracker, SpiteMaliceId.discardIds[i], true, tableau.discardPiles[i], 3),
-        if (hand != null)
-          for (int i = 0; i < 5; i++)
-            PlayingCardStack.tracked(tracker, SpiteMaliceId.handIds[i], true, hand[i], null),
+          PlayingCardPileWidget.tracked(tracker, SpiteMaliceId.discardIds[i], true, tableau.discardPiles[i], 3),
+        for (int i = 0; i < 5; i++)
+          PlayingCardWidget.tracked(tracker, SpiteMaliceId.handIds[i], true, hand[i]),
       ],
     );
   }
@@ -119,17 +118,14 @@ class SpiteMaliceBuildLayout extends TableauLayoutBase {
 class SpiteMaliceBuild extends StatelessWidget {
   SpiteMaliceBuild({
     required this.drawSize,
-    required this.buildTops,
-    required this.buildSizes,
+    required this.buildPiles,
     required this.trashSize,
     this.tracker,
   })
-      : assert(buildTops.length == 4),
-        assert(buildSizes.length == 4);
+      : assert(buildPiles.length == 4);
 
   final int drawSize;
-  final List<PlayingCard?> buildTops;
-  final List<int> buildSizes;
+  final List<PlayingCardStack> buildPiles;
   final int trashSize;
   final MoveTracker? tracker;
 
@@ -138,10 +134,10 @@ class SpiteMaliceBuild extends StatelessWidget {
     return CustomMultiChildLayout(
       delegate: SpiteMaliceBuildLayout(),
       children: <Widget>[
-        PlayingCardStack.tracked(tracker, SpiteMaliceId.drawId, true, PlayingCard.back, drawSize),
+        PlayingCardStackWidget.tracked(tracker, SpiteMaliceId.drawId, true, PlayingCardStack.hidden(drawSize)),
         for (int i = 0; i < 4; i++)
-          PlayingCardStack.tracked(tracker, SpiteMaliceId.buildIds[i], true, buildTops[i], buildSizes[i]),
-        PlayingCardStack.tracked(tracker, SpiteMaliceId.trashId, true, PlayingCard.back, trashSize),
+          PlayingCardStackWidget.tracked(tracker, SpiteMaliceId.buildIds[i], true, buildPiles[i]),
+        PlayingCardStackWidget.tracked(tracker, SpiteMaliceId.trashId, true, PlayingCardStack.hidden(trashSize)),
       ],
     );
   }
@@ -180,7 +176,7 @@ class SpiteMaliceCutDeal extends StatelessWidget {
     return CustomMultiChildLayout(
       delegate: SpiteMaliceCutDealLayout(),
       children: List.generate(cards.length, (index) =>
-          PlayingCardStack.tracked(tracker, SpiteMaliceId.cutIds[index], true, cards[index], null)),
+          PlayingCardWidget.tracked(tracker, SpiteMaliceId.cutIds[index], true, cards[index])),
     );
   }
 }

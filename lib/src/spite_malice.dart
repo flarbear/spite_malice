@@ -44,16 +44,14 @@ class SpiteMalicePage extends StatefulWidget {
 
 class SpiteMalicePageState extends State<SpiteMalicePage> {
   late SpiteMaliceGameState state;
-  late MoveTracker playingTracker;
-  late MoveTracker cutDealTracker;
+  late MoveTracker moveTracker;
   late SpiteMaliceGameStateCancel listenCancel;
 
   @override
   void initState() {
     super.initState();
     state = SpiteMaliceGameState(widget.gameClient);
-    playingTracker = MoveTracker<SpiteMaliceId, SpiteMaliceGameState>(state, SpiteMaliceMoveTracker.playingMoves);
-    cutDealTracker = MoveTracker<SpiteMaliceId, SpiteMaliceGameState>(state, SpiteMaliceMoveTracker.cutDealMoves);
+    moveTracker = MoveTracker<SpiteMaliceId, SpiteMaliceGameState>(state, playingMoves);
     listenCancel = state.listen(() => setState(() => {}));
     state.init();
     widget.gameClient.subscribe(state.update);
@@ -95,7 +93,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
             _dealerLine(),
             SpiteMaliceCutDeal(
               cards: state.cutCards,
-              tracker: cutDealTracker,
+              tracker: moveTracker,
             ),
           ],
         );
@@ -106,15 +104,14 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
               children: <Widget>[
                 SpiteMaliceBuild(
                   drawSize: state.drawSize,
-                  buildTops: state.buildTops,
-                  buildSizes: state.buildSizes,
+                  buildPiles: state.buildPiles,
                   trashSize: state.trashSize,
-                  tracker: state.isMyTurn ? playingTracker : null,
+                  tracker: state.isMyTurn ? moveTracker : null,
                 ),
                 SizedBox(height: 20),
                 SpiteMaliceTableau(
                   tableau: state.myTableau,
-                  tracker: state.isMyTurn ? playingTracker : null,
+                  tracker: state.isMyTurn ? moveTracker : null,
                 ),
               ],
             ),

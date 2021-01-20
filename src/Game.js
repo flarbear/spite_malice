@@ -7,9 +7,11 @@ class SpiteMaliceCard {
     this.suit = suit;
     this.rank = rank;
     this.isWild = rank == 'Wild';
+    this.isBack = rank == 'Back';
   }
 }
 
+const Back = new SpiteMaliceCard(0, 'Back');
 const Wild = new SpiteMaliceCard(0, 'Wild');
 
 function Transfer(source, dest) {
@@ -91,6 +93,18 @@ function Deal(G, ctx) {
   }
 }
 
+function FilterHand(hand, isPlayer) {
+  if (isPlayer) return hand;
+  return hand.map(card => card == null ? null : Back);
+}
+
+function StackInfo(stack) {
+  return {
+    size: stack.length,
+    top: stack.length == 0 ? null : stack[stack.length - 1],
+  };
+}
+
 const SpiteMaliceGame = {
   name: 'Spite-Malice',
 
@@ -120,20 +134,18 @@ const SpiteMaliceGame = {
   playerView: (G, ctx, playerId) => {
     const publicPlayers = {};
     for (var i = 0; i < ctx.numPlayers; i++) {
-      const stock = G.players[i].stock;
       publicPlayers[i] = {
-        stockTop: stock[stock.length - 1],
-        stockSize: stock.length,
+        stock: StackInfo(G.players[i].stock),
         discardPiles: G.players[i].discardPiles,
         cutIndex: G.players[i].cutIndex,
         cutCard: G.players[i].cutCard,
+        hand: FilterHand(G.players[i].hand, i == playerId),
       }
     }
-    publicPlayers[playerId].hand = G.players[playerId].hand;
     return {
       drawSize: G.draw.length,
       completedSize: G.completed.length,
-      buildPiles: G.buildPiles,
+      buildPiles: G.buildPiles.map(pile => StackInfo(pile)),
       players: publicPlayers,
       dealer: G.dealer,
     };
