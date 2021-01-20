@@ -48,6 +48,7 @@ class SpiteMaliceGameState extends CardGameState<SpiteMaliceId> {
   int trashSize = 0;
 
   Map<String, SpiteMaliceTableauState> tableaux = {};
+  List<String> opponentOrder = [];
 
   Map<String, SpiteMaliceCutState> cutStates = {};
   List<PlayingCard> cutCards = List.filled(12, PlayingCard.back);

@@ -46,10 +46,10 @@ class _TestScreenState extends State<TestScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  _wrap(PlayingCardWidget(null)),
-                  _wrap(PlayingCardWidget(PlayingCard.back)),
+                  _wrap(SinglePlayingCard(null)),
+                  _wrap(SinglePlayingCard(PlayingCard.back)),
                   for (int rank = 0; rank <= 12; rank++)
-                    _wrap(PlayingCardWidget(PlayingCard(suit: suit, rank:rank))),
+                    _wrap(SinglePlayingCard(PlayingCard(suit: suit, rank:rank))),
                 ],
               ),
           ],
