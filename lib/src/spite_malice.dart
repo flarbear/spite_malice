@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:playing_cards/playing_cards.dart';
 
 import 'game_state.dart';
+import 'lobby.dart';
 import 'move_tracker.dart';
 
 class SpiteMaliceScreen extends StatelessWidget {
@@ -24,6 +25,9 @@ class SpiteMaliceScreen extends StatelessWidget {
       backgroundColor: Colors.green,
       appBar: AppBar(
         title: Text('Spite & Malice Game'),
+        actions: [
+          LobbyName(client: gameClient,),
+        ],
       ),
       body: Center(
         child: SpiteMalicePage(gameClient),
@@ -43,29 +47,26 @@ class SpiteMalicePage extends StatefulWidget {
 
 class SpiteMalicePageState extends State<SpiteMalicePage> {
   late SpiteMaliceGameState state;
-  late MoveTracker moveTracker;
-  late SpiteMaliceGameStateCancel listenCancel;
 
   @override
   void initState() {
     super.initState();
     state = SpiteMaliceGameState(widget.gameClient);
-    moveTracker = MoveTracker<SpiteMaliceId, SpiteMaliceGameState>(state, playingMoves);
-    listenCancel = state.listen(() => setState(() => {}));
+    state.addListener(update);
     state.init();
-    widget.gameClient.subscribe(state.update);
-    widget.gameClient.start();
   }
 
   @override
   void dispose() {
-    listenCancel();
+    state.removeListener(update);
     widget.gameClient.stop();
     widget.gameClient.leaveGame();
     super.dispose();
   }
 
-  Widget _dealerLine() {
+  void update() => setState(() {});
+
+  Widget _dealStatus() {
     if (state.phase == SpiteMalicePhase.cutting) {
       if (state.hasCut) {
         return Text('Waiting for others to pick a card...');
@@ -75,15 +76,21 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
     } else if (state.isMyDeal) {
       return Text('Click on a card to deal!');
     } else {
-      return Text('Waiting for ${widget.gameClient.players[state.dealerId]!.name} to deal...');
+      return Text('Waiting for ${state.dealerName} to deal...');
     }
   }
 
-  Widget _playerLine() {
-    if (state.isMyTurn) {
+  Widget _playStatus() {
+    if (state.phase == SpiteMalicePhase.winning) {
+      if (state.winnerId == widget.gameClient.playerID) {
+        return Text('You won!!!');
+      } else {
+        return Text('${state.winnerName} won...');
+      }
+    } else if (state.isMyTurn) {
       return Text('Your turn...');
     } else {
-      return Text('Waiting for someone to move...');
+      return Text('Waiting for ${state.turnPlayerName} to move...');
     }
   }
 
@@ -93,7 +100,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
           items: List.generate(4, (colIndex) =>
               TableauItem(childId: SpiteMaliceId.cutIds[rowIndex * 4 + colIndex]),
           ),
-          innerGroupPad: 25,
+          innerItemPad: 25,
         ),
     ),
     innerRowPad: 25,
@@ -107,7 +114,6 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
           ...SpiteMaliceId.buildIds.map((id) => TableauItem(childId: id)),
           TableauItem(childId: SpiteMaliceId.trashId, insets: EdgeInsets.only(left: 25)),
         ],
-        insets: EdgeInsets.only(bottom: 25),
       ),
       TableauRow(
           items: [
@@ -120,6 +126,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
         items: SpiteMaliceId.handIds.map((id) => TableauItem(childId: id)).toList(),
       ),
     ],
+    innerRowPad: 25,
   );
 
   static Tableau opponentTableau = Tableau(
@@ -146,19 +153,20 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
       case SpiteMalicePhase.cutting:
       case SpiteMalicePhase.dealing:
         return PlayingCardTableau(
-          announcement: _dealerLine(),
+          status: _dealStatus(),
           tableauSpec: cutDealTableau,
           items: {
             for (final id in SpiteMaliceId.cutIds)
               id: SinglePlayingCard(state.cutCards[id.index], id: id),
           },
-          tracker: moveTracker,
+          tracker: state.moveTracker,
         );
       case SpiteMalicePhase.playing:
+      case SpiteMalicePhase.winning:
         return Row(
           children: <Widget>[
             PlayingCardTableau(
-              announcement: _playerLine(),
+              status: _playStatus(),
               tableauSpec: playTableau,
               items: {
                 SpiteMaliceId.drawId: StackedPlayingCards.hidden(state.drawSize, id: SpiteMaliceId.drawId),
@@ -171,14 +179,12 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
                 for (final id in SpiteMaliceId.handIds)
                   id: SinglePlayingCard(state.myTableau.hand[id.index], id: id),
               },
-              tracker: state.isMyTurn ? moveTracker : null,
+              tracker: state.isMyTurn ? state.moveTracker : null,
             ),
-            SizedBox(width: 200),
+            SizedBox(width: 75),
             Column(
-              children: state.tableaux.keys
-                  .where((pid) => pid != state.gameClient.playerID)
-                  .map((pid) => PlayingCardTableau(
-                announcement: _playerLine(),
+              children: state.opponentRelativeOrder.map((pid) => PlayingCardTableau(
+                status: Text("${state.gameClient.players[pid]!.name}'s cards"),
                 tableauSpec: opponentTableau,
                 items: {
                   SpiteMaliceId.stockId: StackedPlayingCards(state.tableaux[pid]!.stock, id: SpiteMaliceId.stockId),

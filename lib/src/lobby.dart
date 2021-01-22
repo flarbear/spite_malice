@@ -6,8 +6,11 @@
  * https://opensource.org/licenses/MIT.
  */
 
+import 'dart:async';
+
 import 'package:boardgame_io/boardgame.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LobbyScreen extends StatelessWidget {
   LobbyScreen({
@@ -22,9 +25,75 @@ class LobbyScreen extends StatelessWidget {
       backgroundColor: Colors.green,
       appBar: AppBar(
         title: Text('Spite-Malice Lobby'),
+        actions: [
+          LobbyName(),
+        ],
       ),
       body: Center(
         child: LobbyPage(supportedGames),
+      ),
+    );
+  }
+}
+
+class LobbyName extends StatefulWidget {
+  LobbyName({this.client});
+
+  final Client? client;
+
+  @override
+  State createState() => LobbyNameState();
+}
+
+class LobbyNameState extends State<LobbyName> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _initName();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _initName() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    _controller.text = prefs.getString('player-name') ?? 'Unknown Player';
+  }
+
+  void _updateName(String newName) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('player-name', newName);
+    Client? client = widget.client;
+    if (client != null) {
+      await client.updateName(newName);
+      client.stop();
+      client.start();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 250,
+      child: TextField(
+        controller: _controller,
+        maxLength: 30,
+        style: TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          labelText: 'Player name',
+          contentPadding: EdgeInsets.only(top: 10),
+          border: UnderlineInputBorder(),
+          focusedBorder: UnderlineInputBorder(),
+          counter: Offstage(),
+        ),
+        cursorColor: Colors.white,
+        onSubmitted: (value) => _updateName(value),
       ),
     );
   }
@@ -52,6 +121,7 @@ class LobbyPageState extends State<LobbyPage> {
   List<String>? _allGames;
   String? _gameName;
 
+  Timer? _matchTimer;
   List<MatchData>? _allMatches;
   int _numPlayers = 2;
   int _stockSize = 20;
@@ -63,7 +133,20 @@ class LobbyPageState extends State<LobbyPage> {
   }
 
   @override
+  void didUpdateWidget(LobbyPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _allMatches = null;
+    _gameName = null;
+    _allGames = null;
+    _matchTimer?.cancel();
+    _matchTimer = null;
+    _loadGames();
+  }
+
+  @override
   void dispose() {
+    _matchTimer?.cancel();
+    _matchTimer = null;
     super.dispose();
   }
 
@@ -90,11 +173,16 @@ class LobbyPageState extends State<LobbyPage> {
     List<MatchData> matches = await lobby.listMatches(_gameName!);
     setState(() {
       _allMatches = matches;
+      if (_matchTimer == null) {
+        _matchTimer = Timer.periodic(Duration(seconds: 5), (timer) { _loadMatches(); });
+      }
     });
   }
 
   void _joinMatch(BuildContext context, MatchData match, String playerID) async {
-    Client client = await lobby.joinMatch(match.toGame(), playerID, 'Bob');
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String name = prefs.getString('player-name') ?? 'Unknown Player';
+    Client client = await lobby.joinMatch(match.toGame(), playerID, name);
     Navigator.pushNamed(context, '/play', arguments: client);
   }
 

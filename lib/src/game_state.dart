@@ -7,6 +7,7 @@
  */
 
 import 'package:boardgame_io/boardgame.dart';
+import 'package:flutter/foundation.dart';
 import 'package:playing_cards/playing_cards.dart';
 
 import 'move_tracker.dart';
@@ -16,6 +17,7 @@ enum SpiteMalicePhase {
   cutting,
   dealing,
   playing,
+  winning,
 }
 
 typedef SpiteMaliceGameStateListener = void Function();
@@ -28,18 +30,15 @@ class SpiteMaliceTableauState {
   List<PlayingCard?> hand = List.filled(5, null);
 }
 
-class SpiteMaliceCutState {
-  SpiteMaliceCutState(this.cutIndex, this.cutCard);
-  const SpiteMaliceCutState.available() : this.cutIndex = 0, this.cutCard = PlayingCard.back;
-
-  final int? cutIndex;
-  final PlayingCard? cutCard;
-}
-
-class SpiteMaliceGameState extends CardGameState<SpiteMaliceId> {
-  SpiteMaliceGameState(this.gameClient);
+class SpiteMaliceGameState extends ChangeNotifier {
+  SpiteMaliceGameState(this.gameClient) {
+    gameClient.subscribe(update);
+    moveTracker = MoveTracker(this, playingMoves);
+    moveTracker.addListener(notifyListeners);
+  }
 
   final Client gameClient;
+  late final MoveTracker<SpiteMaliceId, SpiteMaliceGameState> moveTracker;
 
   SpiteMalicePhase phase = SpiteMalicePhase.waiting;
 
@@ -48,30 +47,23 @@ class SpiteMaliceGameState extends CardGameState<SpiteMaliceId> {
   int trashSize = 0;
 
   Map<String, SpiteMaliceTableauState> tableaux = {};
-  List<String> opponentOrder = [];
+  List<String> opponentRelativeOrder = [];
+  String? turnPlayerId;
+  String get turnPlayerName => gameClient.players[turnPlayerId]?.name ?? 'another player';
 
-  Map<String, SpiteMaliceCutState> cutStates = {};
   List<PlayingCard> cutCards = List.filled(12, PlayingCard.back);
+  List<String> cutOwners = List.filled(12, '');
   String? dealerId;
+  String get dealerName => gameClient.players[dealerId]?.name ?? 'another player';
 
-  late MoveState<SpiteMaliceId> currentMove = MoveState.empty();
-
-  List<SpiteMaliceGameStateListener> listeners = <SpiteMaliceGameStateListener>[];
-
-  SpiteMaliceGameStateCancel listen(SpiteMaliceGameStateListener listener) {
-    listeners.add(listener);
-    return () => listeners.remove(listener);
-  }
-
-  void notify() {
-    listeners.forEach((listener) { listener(); });
-  }
+  String? winnerId;
+  String get winnerName => gameClient.players[winnerId]?.name ?? 'some wise guy';
 
   SpiteMaliceTableauState get myTableau => tableaux[gameClient.playerID] ?? SpiteMaliceTableauState();
 
-  bool isMyTurn = false;
-  bool get hasCut => cutStates[gameClient.playerID]?.cutCard != null;
-  bool get isMyDeal => dealerId == gameClient.playerID;
+  bool hasCut = false;
+  bool get isMyDeal => gameClient.playerID == dealerId;
+  bool get isMyTurn => gameClient.playerID == turnPlayerId;
   bool get isHandEmpty => myTableau.hand.every((card) => card == null);
 
   PlayingCard? discardTop(int discardIndex) {
@@ -80,14 +72,7 @@ class SpiteMaliceGameState extends CardGameState<SpiteMaliceId> {
 
   void init() {
     phase = SpiteMalicePhase.waiting;
-    notify();
-  }
-
-  MoveState<SpiteMaliceId> getCurrentMove() => currentMove;
-  void setCurrentMove(MoveState<SpiteMaliceId> moveState) {
-    // print('highlight from changed from $highlightFrom to $type');
-    currentMove = moveState;
-    notify();
+    gameClient.start();
   }
 
   PlayingCard? _getCard(Map<String,dynamic>? gCard) {
@@ -127,17 +112,28 @@ class SpiteMaliceGameState extends CardGameState<SpiteMaliceId> {
         tableau.hand = player['hand']?.map<PlayingCard?>((card) => _getCard(card)).toList();
       }
       assert(tableaux[gameClient.playerID] != null);
-      isMyTurn = ctx.currentPlayer == gameClient.playerID;
-      phase = SpiteMalicePhase.playing;
+      turnPlayerId = ctx.currentPlayer;
+      opponentRelativeOrder = [
+        ...ctx.playerOrder.skipWhile((value) => value != gameClient.playerID).skip(1),
+        ...ctx.playerOrder.takeWhile((value) => value != gameClient.playerID),
+      ];
+      if (ctx.isGameOver) {
+        phase = SpiteMalicePhase.winning;
+        winnerId = ctx.winnerID;
+      } else {
+        phase = SpiteMalicePhase.playing;
+      }
     } else {
       // print(ctx.phase);
       cutCards.fillRange(0, 12, PlayingCard.back);
+      cutOwners.fillRange(0, 12, '');
+      hasCut = false;
       for (String playerId in players.keys) {
         int? index = players[playerId]['cutIndex'];
-        PlayingCard? card = _getCard(players[playerId]['cutCard']);
-        cutStates[playerId] = SpiteMaliceCutState(index, card);
         if (index != null) {
-          cutCards[index] = card!;
+          cutCards[index] = _getCard(players[playerId]['cutCard'])!;
+          cutOwners[index] = gameClient.players[playerId]!.name;
+          hasCut = hasCut ||gameClient.playerID == playerId;
         }
       }
       dealerId = G['dealer']?.toString();
@@ -145,15 +141,8 @@ class SpiteMaliceGameState extends CardGameState<SpiteMaliceId> {
           ? SpiteMalicePhase.dealing
           : SpiteMalicePhase.cutting;
     }
-    notify();
+    notifyListeners();
   }
-
-  static SpiteMaliceCutState unrevealedCut = SpiteMaliceCutState(0, PlayingCard.back);
-
-  PlayingCard cutCard(SpiteMaliceId cutId) =>
-    cutStates.values.firstWhere((state) => state.cutIndex == cutId.index,
-      orElse: () => SpiteMaliceCutState.available(),
-    ).cutCard!;
 
   PlayingCard? _pileTop(List<PlayingCard> pile) {
     return pile.isEmpty ? null : pile.last;
@@ -188,7 +177,6 @@ class SpiteMaliceGameState extends CardGameState<SpiteMaliceId> {
     if (card == null) return false;
     if (card.isBack) return false;
     if (card.isWild) return true;
-    if (card.rank == buildPiles[build.index].size + 1) return true;
-    return false;
+    return (card.rank == buildPiles[build.index].size + 1);
   }
 }

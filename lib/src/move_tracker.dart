@@ -33,7 +33,7 @@ class SpiteMaliceId {
   static List<SpiteMaliceId> handIds = _makeList('hand', 5);
 
   @override
-  String toString() => 'SpiteMaliceId($name${index >= 0 ? ', $index' : ''})';
+  String toString() => 'SpiteMaliceId($name)';
 }
 
 late final playingMoves = {
@@ -79,4 +79,3 @@ late final playingMoves = {
         ),
     },
 };
-

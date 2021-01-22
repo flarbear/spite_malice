@@ -26,6 +26,7 @@ dependencies:
 #    git: http://github.com/flarbear/boardgame_io
   playing_cards:
     path: ../playing_cards
+  shared_preferences: ^0.5.12+4
   flutter:
     sdk: flutter
 
