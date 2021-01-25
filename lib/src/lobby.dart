@@ -38,7 +38,6 @@ class LobbyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // backgroundColor: color ?? Theme.of(context).backgroundColor,
       appBar: AppBar(
         title: Text('$siteName Lobby'),
         actions: [

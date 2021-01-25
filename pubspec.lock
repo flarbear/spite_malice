@@ -4,9 +4,11 @@ packages:
   boardgame_io:
     dependency: "direct main"
     description:
-      path: "../dart_boardgame_io"
-      relative: true
-    source: path
+      path: "."
+      ref: HEAD
+      resolved-ref: "89c2fd6d0dd6c2fc58c1c61e2d2076d40a8d8536"
+      url: "http://github.com/flarbear/boardgame_io"
+    source: git
     version: "0.0.2-nullsafety.0"
   characters:
     dependency: transitive
@@ -119,9 +121,11 @@ packages:
   playing_cards:
     dependency: "direct main"
     description:
-      path: "../playing_cards"
-      relative: true
-    source: path
+      path: "."
+      ref: HEAD
+      resolved-ref: bdc97b16008c001a9a1b96855bd5fce9c8228b7d
+      url: "http://github.com/flarbear/playing_cards"
+    source: git
     version: "0.0.1"
   plugin_platform_interface:
     dependency: transitive

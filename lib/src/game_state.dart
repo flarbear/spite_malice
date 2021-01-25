@@ -78,9 +78,9 @@ class SpiteMaliceGameState extends ChangeNotifier {
 
   PlayingCard? _getCard(Map<String,dynamic>? gCard) {
     if (gCard == null) return null;
-    if (gCard['isWild']) return PlayingCard.wild;
     if (gCard['isBack']) return PlayingCard.back;
     int suitIndex = gCard['suit'];
+    if (gCard['isWild']) return PlayingCard.asWild(suit: suitIndex);
     int rankIndex = gCard['rank'];
     return PlayingCard(suit: suitIndex, rank: rankIndex);
   }

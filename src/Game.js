@@ -64,14 +64,18 @@ function MakeDeck(numPlayers, stockSize) {
   const minCards = numPlayers * (stockSize + 5) + 48;
   const deck = Array();
   while (deck.length < minCards) {
-    deck.push(Wild, Wild, Wild);
+    deck.push(new SpiteMaliceCard(0, 'Wild'),
+              new SpiteMaliceCard(1, 'Wild'),
+              new SpiteMaliceCard(2, 'Wild'));
     for (var suit = 0; suit < 12; suit++) {
       for (var rank = 1; rank <= 12; rank++) {
         deck.push(new SpiteMaliceCard(suit, rank));
       }
-      deck.push(Wild);
+      deck.push(new SpiteMaliceCard(suit, 'Wild'));
     }
-    deck.push(Wild, Wild, Wild);
+    deck.push(new SpiteMaliceCard(9,  'Wild'),
+              new SpiteMaliceCard(10, 'Wild'),
+              new SpiteMaliceCard(11, 'Wild'));
   }
   return deck;
 }

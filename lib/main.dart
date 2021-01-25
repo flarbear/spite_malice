@@ -17,20 +17,24 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  MyApp({ this.name = 'Spite & Malice' });
+
+  final String name;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       initialRoute: '/',
-      title: 'Spite & Malice',
+      title: name,
       routes: {
         '/': (context) => LobbyScreen(
-          siteName: 'Spite-Malice',
+          siteName: name,
           supportedGames: const [ 'Spite-Malice' ],
         ),
         '/play': (context) {
           Client client = ModalRoute.of(context)!.settings.arguments! as Client;
           switch (client.game.description.name) {
-            case 'Spite-Malice': return SpiteMaliceScreen(client);
+            case 'Spite-Malice': return SpiteMaliceScreen(client, name);
             default: throw 'Unrecognized game "${client.game.description.name}"';
           }
         }

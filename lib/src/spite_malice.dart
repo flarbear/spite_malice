@@ -9,29 +9,118 @@
 import 'package:boardgame_io/boardgame.dart';
 import 'package:flutter/material.dart';
 import 'package:playing_cards/playing_cards.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'game_state.dart';
 import 'lobby.dart';
 import 'move_tracker.dart';
 
 class SpiteMaliceScreen extends StatelessWidget {
-  SpiteMaliceScreen(this.gameClient);
+  SpiteMaliceScreen(this.gameClient, this.gameName);
 
   final Client gameClient;
+  final String gameName;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.green,
       appBar: AppBar(
-        title: Text('Spite & Malice Game'),
+        title: Text('$gameName Game'),
         actions: [
+          if (allCardStyles.length > 1) CardStyleSelector(client: gameClient),
           LobbyName(client: gameClient,),
         ],
       ),
       body: Center(
         child: SpiteMalicePage(gameClient),
       ),
+    );
+  }
+}
+
+const String _pref_prefix = 'boardgame.io:spite-malice:';
+
+Future<String> _getPrefString(String key, String defaultValue) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  return prefs.getString('$_pref_prefix$key') ?? defaultValue;
+}
+
+Future<void> _setPrefString(String key, String value) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  prefs.setString('$_pref_prefix$key', value);
+}
+
+const String playingCardStyleKey = 'playing-card-style';
+
+class CardStyleSelector extends StatefulWidget {
+  CardStyleSelector({required this.client});
+
+  final Client client;
+
+  @override
+  State createState() => CardStyleSelectorState();
+}
+
+class CardStyleSelectorState extends State<CardStyleSelector> {
+  @override
+  void initState() {
+    super.initState();
+    _initStyle();
+  }
+
+  static String _nameFor(CardStyle style) {
+    String name = style.toString();
+    if (name.endsWith('()')) {
+      name = name.substring(0, name.length - 2);
+    }
+    return name;
+  }
+
+  CardStyle? _styleFor(String name) {
+    for (final style in allCardStyles) {
+      if (_nameFor(style) == name) {
+        return style;
+      }
+    }
+    return null;
+  }
+
+  void _initStyle() async {
+    String cardStyleName = await _getPrefString(playingCardStyleKey, _nameFor(defaultCardStyle));
+    _updateStyle(cardStyleName);
+  }
+
+  void _updateStyle(String? newStyleName) async {
+    if (newStyleName == null) return;
+    CardStyle? style = _styleFor(newStyleName);
+    if (style != null) {
+      await _setPrefString(playingCardStyleKey, newStyleName);
+      setState(() {
+        if (defaultCardStyle != style) {
+          defaultCardStyle = style;
+          widget.client.stop();
+          widget.client.start();
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text('Card Style:', textAlign: TextAlign.end),
+        SizedBox(width: 5),
+        DropdownButton<String>(
+          value: _nameFor(defaultCardStyle),
+          onChanged: _updateStyle,
+          items: allCardStyles.map((style) {
+            String name = _nameFor(style);
+            return DropdownMenuItem<String>(child: Text(name), value: name);
+          }).toList(),
+        ),
+      ],
     );
   }
 }
@@ -66,17 +155,17 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
 
   void update() => setState(() {});
 
-  Widget _makeCard({
+  Widget _makeStatus({
     required String text,
     Color? textColor,
-    Color? cardColor,
+    Color? backgroundColor,
     double padding = 10,
   }) {
     TextStyle style = Theme.of(context).textTheme.caption ?? TextStyle();
     if (textColor != null) style = style.copyWith(color: textColor);
     style = style.copyWith(fontSize: 20);
     return Card(
-      color: cardColor ?? Theme.of(context).canvasColor,
+      color: backgroundColor ?? Theme.of(context).canvasColor,
       child: Padding(
         padding: EdgeInsets.all(padding),
         child: Text(text, style: style),
@@ -100,7 +189,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
       statusString = 'Waiting for ${state.dealerName} to deal...';
       cardColor = Theme.of(context).scaffoldBackgroundColor;
     }
-    return _makeCard(text: statusString, cardColor: cardColor);
+    return _makeStatus(text: statusString, backgroundColor: cardColor);
   }
 
   Widget _playStatus() {
@@ -123,7 +212,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
       statusString = 'Waiting for ${state.turnPlayerName} to move...';
       cardColor = Theme.of(context).scaffoldBackgroundColor;
     }
-    return _makeCard(text: statusString, cardColor: cardColor, textColor: textColor);
+    return _makeStatus(text: statusString, backgroundColor: cardColor, textColor: textColor);
   }
 
   Widget _opponentStatus(String id) {
@@ -172,7 +261,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
 
   static Tableau opponentTableau = Tableau(
     insets: EdgeInsets.all(15.0).copyWith(top: 5),
-    scale: 0.5,
+    scale: 0.75,
     rows: [
       TableauRow(
           items: [
