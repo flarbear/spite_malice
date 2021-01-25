@@ -22,10 +22,9 @@ environment:
 
 dependencies:
   boardgame_io:
-    path: ../dart_boardgame_io
-#    git: http://github.com/flarbear/boardgame_io
+    git: http://github.com/flarbear/boardgame_io
   playing_cards:
-    path: ../playing_cards
+    git: http://github.com/flarbear/playing_cards
   shared_preferences: ^0.5.12+4
   flutter:
     sdk: flutter
