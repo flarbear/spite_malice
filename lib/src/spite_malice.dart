@@ -108,13 +108,13 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
     Color? cardColor;
     Color? textColor;
     if (state.phase == SpiteMalicePhase.winning) {
-      if (state.winnerId == widget.gameClient.playerID) {
+      if (state.isMyWin) {
         statusString = 'You won!!!';
-        cardColor = Colors.yellow.shade600;
-        textColor = Colors.green;
+        cardColor = Colors.lightGreen;
+        textColor = Colors.yellow.shade400;
       } else {
-        statusString = '${state.winnerName} won...';
-        cardColor = Colors.orangeAccent;
+        statusString = state.winnerId == null ? 'Draw game...' : '${state.winnerName} won...';
+        cardColor = Colors.indigoAccent;
       }
     } else if (state.isMyTurn) {
       statusString = 'Your turn...';
@@ -208,6 +208,14 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
         );
       case SpiteMalicePhase.playing:
       case SpiteMalicePhase.winning:
+        StackedPlayingCardsCaption drawCaption;
+        StackedPlayingCardsCaption buildCaption;
+        if (defaultCardStyle.rendersWildRanks) {
+          drawCaption = StackedPlayingCardsCaption.hover;
+          buildCaption = StackedPlayingCardsCaption.ranked;
+        } else {
+          drawCaption = buildCaption = StackedPlayingCardsCaption.standard;
+        }
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,11 +224,11 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
               status: _playStatus(),
               tableauSpec: playTableau,
               items: {
-                SpiteMaliceId.drawId: StackedPlayingCards.hidden(state.drawSize, id: SpiteMaliceId.drawId),
+                SpiteMaliceId.drawId: StackedPlayingCards.hidden(state.drawSize, id: SpiteMaliceId.drawId, caption: drawCaption,),
                 for (final id in SpiteMaliceId.buildIds)
-                  id: StackedPlayingCards(state.buildPiles[id.index], id: id),
-                SpiteMaliceId.trashId: StackedPlayingCards.hidden(state.trashSize, id: SpiteMaliceId.trashId),
-                SpiteMaliceId.stockId: StackedPlayingCards(state.myTableau.stock, id: SpiteMaliceId.stockId),
+                  id: StackedPlayingCards(state.buildPiles[id.index], id: id, caption: buildCaption,),
+                SpiteMaliceId.trashId: StackedPlayingCards.hidden(state.trashSize, id: SpiteMaliceId.trashId, caption: drawCaption,),
+                SpiteMaliceId.stockId: StackedPlayingCards(state.myTableau.stock, id: SpiteMaliceId.stockId, caption: drawCaption),
                 for (final id in SpiteMaliceId.discardIds)
                   id: CascadedPlayingCards(state.myTableau.discardPiles[id.index], 4, id: id),
                 for (final id in SpiteMaliceId.handIds)

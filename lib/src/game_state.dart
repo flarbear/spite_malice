@@ -64,6 +64,7 @@ class SpiteMaliceGameState extends ChangeNotifier {
   bool hasCut = false;
   bool get isMyDeal => gameClient.playerID == dealerId;
   bool get isMyTurn => gameClient.playerID == turnPlayerId;
+  bool get isMyWin => gameClient.playerID == winnerId;
   bool get isHandEmpty => myTableau.hand.every((card) => card == null);
 
   PlayingCard? discardTop(int discardIndex) {
@@ -112,15 +113,16 @@ class SpiteMaliceGameState extends ChangeNotifier {
         tableau.hand = player['hand']?.map<PlayingCard?>((card) => _getCard(card)).toList();
       }
       assert(tableaux[gameClient.playerID] != null);
-      turnPlayerId = ctx.currentPlayer;
       opponentRelativeOrder = [
         ...ctx.playerOrder.skipWhile((value) => value != gameClient.playerID).skip(1),
         ...ctx.playerOrder.takeWhile((value) => value != gameClient.playerID),
       ];
       if (ctx.isGameOver) {
+        turnPlayerId = null;
         phase = SpiteMalicePhase.winning;
         winnerId = ctx.winnerID;
       } else {
+        turnPlayerId = ctx.currentPlayer;
         phase = SpiteMalicePhase.playing;
       }
     } else {
