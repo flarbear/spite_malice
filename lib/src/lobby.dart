@@ -12,25 +12,43 @@ import 'package:boardgame_io/boardgame.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const String _pref_prefix = 'boardgame.io:';
+
+Future<String> _getPrefString(String key, String defaultValue) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  return prefs.getString('$_pref_prefix$key') ?? defaultValue;
+}
+
+Future<void> _setPrefString(String key, String value) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  prefs.setString('$_pref_prefix$key', value);
+}
+
+const String playerNameKey = 'player-name';
+
 class LobbyScreen extends StatelessWidget {
   LobbyScreen({
+    required this.siteName,
     this.supportedGames = const [],
   });
 
+  final String siteName;
   final List<String> supportedGames;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.green,
+      // backgroundColor: color ?? Theme.of(context).backgroundColor,
       appBar: AppBar(
-        title: Text('Spite-Malice Lobby'),
+        title: Text('$siteName Lobby'),
         actions: [
           LobbyName(),
         ],
       ),
       body: Center(
-        child: LobbyPage(supportedGames),
+        child: LobbyPage(
+          supportedGames: supportedGames,
+        ),
       ),
     );
   }
@@ -62,13 +80,11 @@ class LobbyNameState extends State<LobbyName> {
   }
 
   void _initName() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _controller.text = prefs.getString('player-name') ?? 'Unknown Player';
+    _controller.text = await _getPrefString(playerNameKey, 'Unknown Player');
   }
 
   void _updateName(String newName) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('player-name', newName);
+    await _setPrefString(playerNameKey, newName);
     Client? client = widget.client;
     if (client != null) {
       await client.updateName(newName);
@@ -84,7 +100,6 @@ class LobbyNameState extends State<LobbyName> {
       child: TextField(
         controller: _controller,
         maxLength: 30,
-        style: TextStyle(color: Colors.white),
         decoration: InputDecoration(
           labelText: 'Player name',
           contentPadding: EdgeInsets.only(top: 10),
@@ -92,7 +107,6 @@ class LobbyNameState extends State<LobbyName> {
           focusedBorder: UnderlineInputBorder(),
           counter: Offstage(),
         ),
-        cursorColor: Colors.white,
         onSubmitted: (value) => _updateName(value),
       ),
     );
@@ -100,7 +114,9 @@ class LobbyNameState extends State<LobbyName> {
 }
 
 class LobbyPage extends StatefulWidget {
-  LobbyPage(this.supportedGames);
+  LobbyPage({
+    this.supportedGames = const [],
+  });
 
   final List<String> supportedGames;
 
@@ -172,7 +188,7 @@ class LobbyPageState extends State<LobbyPage> {
   void _loadMatches() async {
     List<MatchData> matches = await lobby.listMatches(_gameName!);
     setState(() {
-      _allMatches = matches;
+      _allMatches = matches.where((match) => match.canJoin).toList();
       if (_matchTimer == null) {
         _matchTimer = Timer.periodic(Duration(seconds: 5), (timer) { _loadMatches(); });
       }
@@ -180,8 +196,7 @@ class LobbyPageState extends State<LobbyPage> {
   }
 
   void _joinMatch(BuildContext context, MatchData match, String playerID) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String name = prefs.getString('player-name') ?? 'Unknown Player';
+    String name = await _getPrefString(playerNameKey, 'Unknown Player');
     Client client = await lobby.joinMatch(match.toGame(), playerID, name);
     Navigator.pushNamed(context, '/play', arguments: client);
   }
@@ -212,52 +227,85 @@ class LobbyPageState extends State<LobbyPage> {
     }
     return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          ..._allMatches!
-              .where((match) => match.canJoin)
-              .map((match) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                Text('${match.gameName} Match Created: ${match.createdAt}'),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+          SizedBox(height: 20.0),
+          if (_allMatches!.isNotEmpty)
+            Text('Choose a seat in an existing match:'),
+          ..._allMatches!.map((match) {
+            return Card(
+              child: Padding(
+                padding: EdgeInsets.all(10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
-                    Text('Seats: '),
-                    ...match.players.map((player) {
-                      return RaisedButton(
-                        onPressed: player.isSeated ? null : () => _joinMatch(context, match, player.id),
-                        child: Text(player.seatedName ?? 'Open Seat'),
-                      );
-                    }),
+                    Text('${match.gameName} Match Created: ${match.createdAt}'),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text('Seats: '),
+                        ...match.players.map((player) {
+                          return Padding(
+                            padding: EdgeInsets.all(5.0),
+                            child: ElevatedButton(
+                              onPressed: player.isSeated ? null : () => _joinMatch(context, match, player.id),
+                              child: Text(player.seatedName ?? 'Open Seat'),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
             );
           }),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text('Number of Players: '),
-              DropdownButton<int>(
-                value: _numPlayers,
-                onChanged: (value) => setState(() => _numPlayers = value!),
-                items: List.generate(6, (n) => DropdownMenuItem<int>(child: Text('${n+1} Players'), value: n+1)),
+          SizedBox(height: 20.0),
+          _allMatches!.isEmpty ? Text('Create a match:') : Text('Or, create a new match:'),
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(10.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Table(
+                    defaultColumnWidth: IntrinsicColumnWidth(),
+                    defaultVerticalAlignment: TableCellVerticalAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: <TableRow>[
+                      TableRow(
+                        children: <Widget>[
+                          Text('Number of Players:', textAlign: TextAlign.end),
+                          SizedBox(width: 5),
+                          DropdownButton<int>(
+                            value: _numPlayers,
+                            onChanged: (value) => setState(() => _numPlayers = value!),
+                            items: List.generate(6, (n) => DropdownMenuItem<int>(child: Text('${n+1} Players'), value: n+1)),
+                          ),
+                        ],
+                      ),
+                      TableRow(
+                        children: <Widget>[
+                          Text('Size of stock pile:', textAlign: TextAlign.end),
+                          SizedBox(width: 5),
+                          DropdownButton<int>(
+                            value: _stockSize,
+                            onChanged: (value) => setState(() => _stockSize = value!),
+                            items: [15, 20, 23, 25, 30]
+                                .map((n) => DropdownMenuItem(child: Text('$n Cards'), value: n))
+                                .toList(),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  SizedBox(width: 20.0),
+                  ElevatedButton(
+                    onPressed: () => _createMatch(context),
+                    child: Text('Create New Game'),
+                  ),
+                ],
               ),
-              Text('Size of stock pile: '),
-              DropdownButton<int>(
-                value: _stockSize,
-                onChanged: (value) => setState(() => _stockSize = value!),
-                items: [15, 20, 23, 25, 30]
-                    .map((n) => DropdownMenuItem(child: Text('$n Cards'), value: n))
-                    .toList(),
-              ),
-              RaisedButton(
-                onPressed: () => _createMatch(context),
-                child: Text('Create New Game'),
-              ),
-            ],
+            ),
           ),
         ],
       ),

@@ -132,8 +132,8 @@ class SpiteMaliceGameState extends ChangeNotifier {
         int? index = players[playerId]['cutIndex'];
         if (index != null) {
           cutCards[index] = _getCard(players[playerId]['cutCard'])!;
-          cutOwners[index] = gameClient.players[playerId]!.name;
-          hasCut = hasCut ||gameClient.playerID == playerId;
+          cutOwners[index] = gameClient.players[playerId]?.name ?? 'Unknown player';
+          hasCut = hasCut || gameClient.playerID == playerId;
         }
       }
       dealerId = G['dealer']?.toString();

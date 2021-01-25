@@ -66,47 +66,89 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
 
   void update() => setState(() {});
 
+  Widget _makeCard({
+    required String text,
+    Color? textColor,
+    Color? cardColor,
+    double padding = 10,
+  }) {
+    TextStyle style = Theme.of(context).textTheme.caption ?? TextStyle();
+    if (textColor != null) style = style.copyWith(color: textColor);
+    style = style.copyWith(fontSize: 20);
+    return Card(
+      color: cardColor ?? Theme.of(context).canvasColor,
+      child: Padding(
+        padding: EdgeInsets.all(padding),
+        child: Text(text, style: style),
+      ),
+    );
+  }
+
   Widget _dealStatus() {
+    String statusString;
+    Color? cardColor;
     if (state.phase == SpiteMalicePhase.cutting) {
       if (state.hasCut) {
-        return Text('Waiting for others to pick a card...');
+        statusString = 'Waiting for others to pick a card...';
+        cardColor = Theme.of(context).scaffoldBackgroundColor;
       } else {
-        return Text('Pick a card to determine the dealer...');
+        statusString = 'Pick a card to determine the dealer...';
       }
     } else if (state.isMyDeal) {
-      return Text('Click on a card to deal!');
+      statusString = 'Click on a card to deal!';
     } else {
-      return Text('Waiting for ${state.dealerName} to deal...');
+      statusString = 'Waiting for ${state.dealerName} to deal...';
+      cardColor = Theme.of(context).scaffoldBackgroundColor;
     }
+    return _makeCard(text: statusString, cardColor: cardColor);
   }
 
   Widget _playStatus() {
+    String statusString;
+    Color? cardColor;
+    Color? textColor;
     if (state.phase == SpiteMalicePhase.winning) {
       if (state.winnerId == widget.gameClient.playerID) {
-        return Text('You won!!!');
+        statusString = 'You won!!!';
+        cardColor = Colors.yellow.shade600;
+        textColor = Colors.green;
       } else {
-        return Text('${state.winnerName} won...');
+        statusString = '${state.winnerName} won...';
+        cardColor = Colors.orangeAccent;
       }
     } else if (state.isMyTurn) {
-      return Text('Your turn...');
+      statusString = 'Your turn...';
+      cardColor = Theme.of(context).canvasColor;
     } else {
-      return Text('Waiting for ${state.turnPlayerName} to move...');
+      statusString = 'Waiting for ${state.turnPlayerName} to move...';
+      cardColor = Theme.of(context).scaffoldBackgroundColor;
     }
+    return _makeCard(text: statusString, cardColor: cardColor, textColor: textColor);
+  }
+
+  Widget _opponentStatus(String id) {
+    String name = state.gameClient.players[id]!.name;
+    if (state.winnerId == id) return Text('$name won!', style: TextStyle(color: Colors.yellow));
+    if (state.turnPlayerId == id) return Text("$name's turn...");
+    return Text("$name's cards");
   }
 
   static Tableau cutDealTableau = Tableau(
+    insets: EdgeInsets.all(10.0),
+    innerRowPad: 25,
     rows: List.generate(3, (rowIndex) =>
         TableauRow(
+          innerItemPad: 25,
           items: List.generate(4, (colIndex) =>
               TableauItem(childId: SpiteMaliceId.cutIds[rowIndex * 4 + colIndex]),
           ),
-          innerItemPad: 25,
         ),
     ),
-    innerRowPad: 25,
   );
 
   static Tableau playTableau = Tableau(
+    insets: EdgeInsets.all(10.0).copyWith(bottom: 20.0),
+    innerRowPad: 25,
     rows: [
       TableauRow(
         items: [
@@ -122,14 +164,15 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
           ]
       ),
       TableauRow(
-        insets: EdgeInsets.only(left: 15),
+        insets: EdgeInsets.only(left: 65),
         items: SpiteMaliceId.handIds.map((id) => TableauItem(childId: id)).toList(),
       ),
     ],
-    innerRowPad: 25,
   );
 
   static Tableau opponentTableau = Tableau(
+    insets: EdgeInsets.all(15.0).copyWith(top: 5),
+    scale: 0.5,
     rows: [
       TableauRow(
           items: [
@@ -138,7 +181,8 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
           ]
       ),
       TableauRow(
-        insets: EdgeInsets.only(left: 15),
+        scale: 0.5,
+        insets: EdgeInsets.only(left: 240),
         items: SpiteMaliceId.handIds.map((id) => TableauItem(childId: id)).toList(),
       ),
     ],
@@ -160,10 +204,13 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
               id: SinglePlayingCard(state.cutCards[id.index], id: id),
           },
           tracker: state.moveTracker,
+          backgroundColor: state.isMyDeal ? Theme.of(context).canvasColor : null,
         );
       case SpiteMalicePhase.playing:
       case SpiteMalicePhase.winning:
         return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             PlayingCardTableau(
               status: _playStatus(),
@@ -180,21 +227,32 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
                   id: SinglePlayingCard(state.myTableau.hand[id.index], id: id),
               },
               tracker: state.isMyTurn ? state.moveTracker : null,
+              backgroundColor: state.isMyTurn ? Theme.of(context).canvasColor : null,
             ),
             SizedBox(width: 75),
-            Column(
-              children: state.opponentRelativeOrder.map((pid) => PlayingCardTableau(
-                status: Text("${state.gameClient.players[pid]!.name}'s cards"),
-                tableauSpec: opponentTableau,
-                items: {
-                  SpiteMaliceId.stockId: StackedPlayingCards(state.tableaux[pid]!.stock, id: SpiteMaliceId.stockId),
-                  for (final id in SpiteMaliceId.discardIds)
-                    id: CascadedPlayingCards(state.tableaux[pid]!.discardPiles[id.index], 3, id: id),
-                  for (final id in SpiteMaliceId.handIds)
-                    id: SinglePlayingCard(state.tableaux[pid]!.hand[id.index], id: id),
-                },
-              )).toList(),
-            )
+            Scrollbar(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: Column(
+                  children: state.opponentRelativeOrder.map((pid) => PlayingCardTableau(
+                    status: _opponentStatus(pid),
+                    tableauSpec: opponentTableau,
+                    items: {
+                      SpiteMaliceId.stockId: StackedPlayingCards(
+                        state.tableaux[pid]!.stock,
+                        id: SpiteMaliceId.stockId,
+                        caption: StackedPlayingCardsCaption.hover,
+                      ),
+                      for (final id in SpiteMaliceId.discardIds)
+                        id: CascadedPlayingCards(state.tableaux[pid]!.discardPiles[id.index], 3, id: id),
+                      for (final id in SpiteMaliceId.handIds)
+                        id: SinglePlayingCard(state.tableaux[pid]!.hand[id.index], id: id),
+                    },
+                    backgroundColor: state.turnPlayerId == pid ? Colors.green.shade400 : null,
+                  )).toList(),
+                ),
+              ),
+            ),
           ],
         );
     }

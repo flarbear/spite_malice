@@ -23,7 +23,10 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       title: 'Spite & Malice',
       routes: {
-        '/': (context) => LobbyScreen(supportedGames: const [ 'Spite-Malice' ]),
+        '/': (context) => LobbyScreen(
+          siteName: 'Spite-Malice',
+          supportedGames: const [ 'Spite-Malice' ],
+        ),
         '/play': (context) {
           Client client = ModalRoute.of(context)!.settings.arguments! as Client;
           switch (client.game.description.name) {
@@ -33,10 +36,32 @@ class MyApp extends StatelessWidget {
         }
       },
       theme: ThemeData(
-        textTheme: Theme.of(context).textTheme.apply(bodyColor: Colors.white),
+        textTheme: Theme.of(context).textTheme.apply(
+          bodyColor: Colors.white,
+          displayColor: Colors.white,
+        ),
+        scaffoldBackgroundColor: Colors.green,
+        cardTheme: CardTheme(
+          color: Colors.green.shade600,
+          margin: EdgeInsets.all(5.0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(5.0)),
+            side: BorderSide(
+              color: Colors.green.shade700,
+              width: 2.0,
+            ),
+          ),
+        ),
+        canvasColor: Colors.green.shade400,
+        buttonColor: Colors.green.shade400,
         textSelectionTheme: TextSelectionThemeData(
-          cursorColor: Colors.grey,
+          cursorColor: Colors.white,
           selectionColor: Colors.grey,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: MaterialStateColor.resolveWith((states) => Colors.green.shade400),
+          ),
         ),
       ),
     );
