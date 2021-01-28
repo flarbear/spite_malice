@@ -6,11 +6,11 @@
  * https://opensource.org/licenses/MIT.
  */
 
+import 'package:boardgame_io/boardgame.dart';
 import 'package:flutter/material.dart';
+
 import 'src/lobby.dart';
 import 'src/spite_malice.dart';
-
-import 'package:boardgame_io/boardgame.dart';
 
 void main() {
   runApp(MyApp());

@@ -6,10 +6,10 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: "89c2fd6d0dd6c2fc58c1c61e2d2076d40a8d8536"
+      resolved-ref: "3962b8e4007745b3939aa56ca038eb269ffadf13"
       url: "http://github.com/flarbear/boardgame_io"
     source: git
-    version: "0.0.2-nullsafety.0"
+    version: "0.0.3-nullsafety.0"
   characters:
     dependency: transitive
     description:
@@ -123,10 +123,10 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: bdc97b16008c001a9a1b96855bd5fce9c8228b7d
+      resolved-ref: "23f19f0004d3ba9de80d8f936d351139c6cf063c"
       url: "http://github.com/flarbear/playing_cards"
     source: git
-    version: "0.0.1"
+    version: "0.0.2"
   plugin_platform_interface:
     dependency: transitive
     description:

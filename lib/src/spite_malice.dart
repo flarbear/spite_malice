@@ -69,17 +69,9 @@ class CardStyleSelectorState extends State<CardStyleSelector> {
     _initStyle();
   }
 
-  static String _nameFor(CardStyle style) {
-    String name = style.toString();
-    if (name.endsWith('()')) {
-      name = name.substring(0, name.length - 2);
-    }
-    return name;
-  }
-
   CardStyle? _styleFor(String name) {
     for (final style in allCardStyles) {
-      if (_nameFor(style) == name) {
+      if (style.name == name) {
         return style;
       }
     }
@@ -87,7 +79,7 @@ class CardStyleSelectorState extends State<CardStyleSelector> {
   }
 
   void _initStyle() async {
-    String cardStyleName = await _getPrefString(playingCardStyleKey, _nameFor(defaultCardStyle));
+    String cardStyleName = await _getPrefString(playingCardStyleKey, defaultCardStyle.name);
     _updateStyle(cardStyleName);
   }
 
@@ -113,11 +105,10 @@ class CardStyleSelectorState extends State<CardStyleSelector> {
         Text('Card Style:', textAlign: TextAlign.end),
         SizedBox(width: 5),
         DropdownButton<String>(
-          value: _nameFor(defaultCardStyle),
+          value: defaultCardStyle.name,
           onChanged: _updateStyle,
-          items: allCardStyles.map((style) {
-            String name = _nameFor(style);
-            return DropdownMenuItem<String>(child: Text(name), value: name);
+          items: allCardStyles.where((style) => style.numRanks >= 12).map((style) {
+            return DropdownMenuItem<String>(child: Text(style.name), value: style.name);
           }).toList(),
         ),
       ],

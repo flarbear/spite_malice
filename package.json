@@ -10,7 +10,7 @@
   "author": "flarbear",
   "license": "MIT",
   "dependencies": {
-    "boardgame.io": "^0.42.2",
+    "boardgame.io": "^0.43.2",
     "esm": "^3.2.25",
     "koa-static": "^5.0.0"
   },
