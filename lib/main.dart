@@ -34,7 +34,7 @@ class MyApp extends StatelessWidget {
         '/play': (context) {
           Client client = ModalRoute.of(context)!.settings.arguments! as Client;
           switch (client.game.description.name) {
-            case 'Spite-Malice': return SpiteMaliceScreen(client, name);
+            case 'Spite-Malice': return SpiteMaliceScreen(gameClient: client, gameName: name);
             default: throw 'Unrecognized game "${client.game.description.name}"';
           }
         }

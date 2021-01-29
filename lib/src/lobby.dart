@@ -95,6 +95,7 @@ class LobbyNameState extends State<LobbyName> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: EdgeInsets.symmetric(horizontal: 10.0),
       width: 250,
       child: TextField(
         controller: _controller,

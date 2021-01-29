@@ -16,10 +16,14 @@ import 'lobby.dart';
 import 'move_tracker.dart';
 
 class SpiteMaliceScreen extends StatelessWidget {
-  SpiteMaliceScreen(this.gameClient, this.gameName);
+  SpiteMaliceScreen({
+    required this.gameClient,
+    String? gameName,
+  }) : this.gameName = gameName ?? gameClient.game.description.name;
 
   final Client gameClient;
   final String gameName;
+  final ValueNotifier<CardStyle> cardStyleNotifier = ValueNotifier(defaultCardStyle);
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +32,19 @@ class SpiteMaliceScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('$gameName Game'),
         actions: [
-          if (allCardStyles.length > 1) CardStyleSelector(client: gameClient),
-          LobbyName(client: gameClient,),
+          if (allCardStyles.length > 1)
+            CardStyleSelector(
+              notifier: cardStyleNotifier,
+              validator: (style) => style.numRanks >= 12,
+            ),
+          LobbyName(client: gameClient),
         ],
       ),
       body: Center(
-        child: SpiteMalicePage(gameClient),
+        child: SpiteMalicePage(
+          gameClient: gameClient,
+          cardStyleNotifier: cardStyleNotifier,
+        ),
       ),
     );
   }
@@ -54,9 +65,12 @@ Future<void> _setPrefString(String key, String value) async {
 const String playingCardStyleKey = 'playing-card-style';
 
 class CardStyleSelector extends StatefulWidget {
-  CardStyleSelector({required this.client});
+  CardStyleSelector({required this.notifier, this.validator = _defaultValidator});
 
-  final Client client;
+  static bool _defaultValidator(CardStyle style) => true;
+
+  final ValueNotifier<CardStyle> notifier;
+  final bool Function(CardStyle) validator;
 
   @override
   State createState() => CardStyleSelectorState();
@@ -66,8 +80,17 @@ class CardStyleSelectorState extends State<CardStyleSelector> {
   @override
   void initState() {
     super.initState();
+    widget.notifier.addListener(_update);
     _initStyle();
   }
+
+  @override
+  void dispose() {
+    widget.notifier.removeListener(_update);
+    super.dispose();
+  }
+
+  void _update() => setState(() {});
 
   CardStyle? _styleFor(String name) {
     for (final style in allCardStyles) {
@@ -79,47 +102,44 @@ class CardStyleSelectorState extends State<CardStyleSelector> {
   }
 
   void _initStyle() async {
-    String cardStyleName = await _getPrefString(playingCardStyleKey, defaultCardStyle.name);
-    _updateStyle(cardStyleName);
+    String cardStyleName = await _getPrefString(playingCardStyleKey, widget.notifier.value.name);
+    _updateStyle(_styleFor(cardStyleName));
   }
 
-  void _updateStyle(String? newStyleName) async {
-    if (newStyleName == null) return;
-    CardStyle? style = _styleFor(newStyleName);
-    if (style != null) {
-      await _setPrefString(playingCardStyleKey, newStyleName);
-      setState(() {
-        if (defaultCardStyle != style) {
-          defaultCardStyle = style;
-          widget.client.stop();
-          widget.client.start();
-        }
-      });
-    }
+  void _updateStyle(CardStyle? newStyle) async {
+    if (newStyle == null) return;
+    await _setPrefString(playingCardStyleKey, newStyle.name);
+    widget.notifier.value = newStyle;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text('Card Style:', textAlign: TextAlign.end),
-        SizedBox(width: 5),
-        DropdownButton<String>(
-          value: defaultCardStyle.name,
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 10.0),
+      child: IntrinsicWidth(
+        child: DropdownButtonFormField<CardStyle>(
+          value: widget.notifier.value,
           onChanged: _updateStyle,
-          items: allCardStyles.where((style) => style.numRanks >= 12).map((style) {
-            return DropdownMenuItem<String>(child: Text(style.name), value: style.name);
+          items: allCardStyles.where(widget.validator).map((style) {
+            return DropdownMenuItem<CardStyle>(child: Text(style.name), value: style);
           }).toList(),
+          decoration: InputDecoration(
+            labelText: 'Card Style',
+            contentPadding: EdgeInsets.only(top: 10),
+            border: UnderlineInputBorder(),
+            focusedBorder: UnderlineInputBorder(),
+          ),
         ),
-      ],
+      ),
     );
   }
 }
 
 class SpiteMalicePage extends StatefulWidget {
-  SpiteMalicePage(this.gameClient);
+  SpiteMalicePage({required this.gameClient, this.cardStyleNotifier});
 
   final Client gameClient;
+  final ValueNotifier<CardStyle>? cardStyleNotifier;
 
   @override
   State createState() => SpiteMalicePageState();
@@ -131,20 +151,22 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
   @override
   void initState() {
     super.initState();
+    widget.cardStyleNotifier?.addListener(_update);
     state = SpiteMaliceGameState(widget.gameClient);
-    state.addListener(update);
+    state.addListener(_update);
     state.init();
   }
 
   @override
   void dispose() {
-    state.removeListener(update);
+    state.removeListener(_update);
     widget.gameClient.stop();
     widget.gameClient.leaveGame();
+    widget.cardStyleNotifier?.removeListener(_update);
     super.dispose();
   }
 
-  void update() => setState(() {});
+  void _update() => setState(() {});
 
   Widget _makeStatus({
     required String text,
@@ -271,12 +293,14 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
   @override
   Widget build(BuildContext context) {
     // print('building for phase: ${state.phase}');
+    CardStyle cardStyle = widget.cardStyleNotifier?.value ?? defaultCardStyle;
     switch (state.phase) {
       case SpiteMalicePhase.waiting:
         return Text('Waiting for game state to load');
       case SpiteMalicePhase.cutting:
       case SpiteMalicePhase.dealing:
         return PlayingCardTableau(
+          style: cardStyle,
           status: _dealStatus(),
           tableauSpec: cutDealTableau,
           items: {
@@ -290,7 +314,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
       case SpiteMalicePhase.winning:
         StackedPlayingCardsCaption drawCaption;
         StackedPlayingCardsCaption buildCaption;
-        if (defaultCardStyle.rendersWildRanks) {
+        if (cardStyle.rendersWildRanks) {
           drawCaption = StackedPlayingCardsCaption.hover;
           buildCaption = StackedPlayingCardsCaption.ranked;
         } else {
@@ -301,6 +325,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             PlayingCardTableau(
+              style: cardStyle,
               status: _playStatus(),
               tableauSpec: playTableau,
               items: {
@@ -323,6 +348,7 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
                 scrollDirection: Axis.vertical,
                 child: Column(
                   children: state.opponentRelativeOrder.map((pid) => PlayingCardTableau(
+                    style: cardStyle,
                     status: _opponentStatus(pid),
                     tableauSpec: opponentTableau,
                     items: {
