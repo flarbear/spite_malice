@@ -17,13 +17,20 @@ import 'move_tracker.dart';
 
 class SpiteMaliceScreen extends StatelessWidget {
   SpiteMaliceScreen({
-    required this.gameClient,
+    required Client gameClient,
     String? gameName,
-  }) : this.gameName = gameName ?? gameClient.game.description.name;
+  })
+      : assert(gameClient.game.description.name == 'Spite-Malice'),
+        this.gameClient = gameClient,
+        this.gameState = SpiteMaliceGameState(gameClient),
+        this.gameName = gameName ?? gameClient.game.description.name {
+    gameState.init();
+  }
 
   final Client gameClient;
   final String gameName;
   final ValueNotifier<CardStyle> cardStyleNotifier = ValueNotifier(defaultCardStyle);
+  final SpiteMaliceGameState gameState;
 
   @override
   Widget build(BuildContext context) {
@@ -40,10 +47,17 @@ class SpiteMaliceScreen extends StatelessWidget {
           LobbyName(client: gameClient),
         ],
       ),
-      body: Center(
-        child: SpiteMalicePage(
-          gameClient: gameClient,
-          cardStyleNotifier: cardStyleNotifier,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          print('tapped on nowhere');
+          gameState.moveTracker.hoveringOver(null, true);
+          },
+        child: Center(
+          child: SpiteMalicePage(
+            gameState: gameState,
+            cardStyleNotifier: cardStyleNotifier,
+          ),
         ),
       ),
     );
@@ -136,32 +150,31 @@ class CardStyleSelectorState extends State<CardStyleSelector> {
 }
 
 class SpiteMalicePage extends StatefulWidget {
-  SpiteMalicePage({required this.gameClient, this.cardStyleNotifier});
+  SpiteMalicePage({required this.gameState, this.cardStyleNotifier});
 
-  final Client gameClient;
   final ValueNotifier<CardStyle>? cardStyleNotifier;
+  final SpiteMaliceGameState gameState;
 
   @override
   State createState() => SpiteMalicePageState();
 }
 
 class SpiteMalicePageState extends State<SpiteMalicePage> {
-  late SpiteMaliceGameState state;
+  SpiteMaliceGameState get state => widget.gameState;
+  Client get client => state.gameClient;
 
   @override
   void initState() {
     super.initState();
     widget.cardStyleNotifier?.addListener(_update);
-    state = SpiteMaliceGameState(widget.gameClient);
     state.addListener(_update);
-    state.init();
   }
 
   @override
   void dispose() {
     state.removeListener(_update);
-    widget.gameClient.stop();
-    widget.gameClient.leaveGame();
+    client.stop();
+    client.leaveGame();
     widget.cardStyleNotifier?.removeListener(_update);
     super.dispose();
   }
