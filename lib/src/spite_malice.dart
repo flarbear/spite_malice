@@ -49,10 +49,7 @@ class SpiteMaliceScreen extends StatelessWidget {
       ),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () {
-          print('tapped on nowhere');
-          gameState.moveTracker.hoveringOver(null, true);
-          },
+        onTap: () => gameState.moveTracker.hoveringOver(null, true),
         child: Center(
           child: SpiteMalicePage(
             gameState: gameState,

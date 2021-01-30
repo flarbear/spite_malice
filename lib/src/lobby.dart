@@ -186,7 +186,7 @@ class LobbyPageState extends State<LobbyPage> {
   }
 
   void _loadMatches() async {
-    List<MatchData> matches = await lobby.listMatches(_gameName!);
+    List<MatchData> matches = await lobby.listMatches(_gameName!, force: true);
     setState(() {
       _allMatches = matches.where((match) => match.canJoin).toList();
       if (_matchTimer == null) {
@@ -306,6 +306,11 @@ class LobbyPageState extends State<LobbyPage> {
                 ],
               ),
             ),
+          ),
+          SizedBox(height: 20.0),
+          ElevatedButton(
+            onPressed: () => _loadMatches(),
+            child: Text('Refresh list of matches'),
           ),
         ],
       ),
