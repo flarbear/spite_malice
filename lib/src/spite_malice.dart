@@ -245,19 +245,6 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
     return Text("$name's cards");
   }
 
-  static Tableau cutDealTableau = Tableau(
-    insets: EdgeInsets.all(10.0),
-    innerRowPad: 25,
-    rows: List.generate(3, (rowIndex) =>
-        TableauRow(
-          innerItemPad: 25,
-          items: List.generate(4, (colIndex) =>
-              TableauItem(childId: SpiteMaliceId.cutIds[rowIndex * 4 + colIndex]),
-          ),
-        ),
-    ),
-  );
-
   static Tableau playTableau = Tableau(
     insets: EdgeInsets.all(10.0).copyWith(bottom: 20.0),
     innerRowPad: 25,
@@ -309,16 +296,36 @@ class SpiteMalicePageState extends State<SpiteMalicePage> {
         return Text('Waiting for game state to load');
       case SpiteMalicePhase.cutting:
       case SpiteMalicePhase.dealing:
-        return PlayingCardTableau(
-          style: cardStyle,
-          status: _dealStatus(),
-          tableauSpec: cutDealTableau,
-          items: {
-            for (final id in SpiteMaliceId.cutIds)
-              id: SinglePlayingCard(state.cutCards[id.index], id: id),
-          },
+        List<Widget> cutNames = List.generate(12, (index) => SizedBox(
+          width: cardStyle.preferredSize.width + 10,
+          child: Text(state.cutOwners[index], textAlign: TextAlign.center),
+        )).toList();
+        List<Widget> cutCards = List.generate(12, (index) => Padding(
+          padding: EdgeInsets.all(5.0),
+          child: SinglePlayingCard(state.cutCards[index], id: SpiteMaliceId.cutIds[index])
+              .track(state.moveTracker),
+        ));
+        return TableauInfo(
           tracker: state.moveTracker,
-          backgroundColor: state.isMyDeal ? Theme.of(context).canvasColor : null,
+          style: cardStyle,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _dealStatus(),
+                SizedBox(height: 10),
+                Table(
+                  defaultColumnWidth: IntrinsicColumnWidth(),
+                  children: [
+                    TableRow(children: cutNames.sublist(0,  4)), TableRow(children: cutCards.sublist(0,  4)),
+                    TableRow(children: cutNames.sublist(4,  8)), TableRow(children: cutCards.sublist(4,  8)),
+                    TableRow(children: cutNames.sublist(8, 12)), TableRow(children: cutCards.sublist(8, 12)),
+                  ],
+                ),
+              ],
+            ),
+          ),
         );
       case SpiteMalicePhase.playing:
       case SpiteMalicePhase.winning:
