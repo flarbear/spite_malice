@@ -12,7 +12,6 @@ import 'package:playing_cards/playing_cards.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'game_state.dart';
-import 'lobby.dart';
 import 'move_tracker.dart';
 
 class SpiteMaliceScreen extends StatelessWidget {
@@ -44,7 +43,7 @@ class SpiteMaliceScreen extends StatelessWidget {
               notifier: cardStyleNotifier,
               validator: (style) => style.numRanks >= 12,
             ),
-          LobbyName(client: gameClient),
+          LobbyPlayerName.forClient(gameClient),
         ],
       ),
       body: GestureDetector(

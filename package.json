@@ -4,8 +4,7 @@
   "description": "Spite and Malice Card Game",
   "main": "index.js",
   "scripts": {
-    "preinstall": "npx npm-force-resolutions",
-    "start": "node -r esm src/server.js"
+    "start": "node -r esm src/Server.js"
   },
   "author": "flarbear",
   "license": "MIT",
@@ -14,7 +13,7 @@
     "esm": "^3.2.25",
     "koa-static": "^5.0.0"
   },
-  "resolutions": {
-    "node-forge": "0.10.0"
+  "engines": {
+    "node": "14.x"
   }
 }

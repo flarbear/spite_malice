@@ -9,8 +9,9 @@
 import 'package:boardgame_io/boardgame.dart';
 import 'package:flutter/material.dart';
 
-import 'src/lobby.dart';
 import 'src/spite_malice.dart';
+
+String _playerNameKey = 'boardgame.io:spite-malice:player-name';
 
 void main() {
   runApp(MyApp());
@@ -20,6 +21,7 @@ class MyApp extends StatelessWidget {
   MyApp({ this.name = 'Spite & Malice' });
 
   final String name;
+  final Lobby lobby = Lobby(getDefaultLobbyBase(), playerNamePreferenceKey: _playerNameKey);
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +31,23 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => LobbyScreen(
           siteName: name,
-          supportedGames: const [ 'Spite-Malice' ],
+          lobby: lobby,
+          supportedGames: [
+            GameProperties(
+              protocolName: 'Spite-Malice',
+              displayName: name,
+              playerCountOption: PlayerCountOption(1, 6, 2),
+              setupOptions: [
+                IntListGameOption(
+                  setupDataName: 'stockSize',
+                  prompt: 'Size of Stock Pile',
+                  values: [15, 20, 23, 25, 30],
+                  itemName: 'Card',
+                  defaultIndex: 1,
+                ),
+              ],
+            ),
+          ],
         ),
         '/play': (context) {
           Client client = ModalRoute.of(context)!.settings.arguments! as Client;
